@@ -45,7 +45,7 @@ const String TXT_MOON_WANING_CRESCENT = "Waning Crescent";
 //Power / WiFi
 const String TXT_POWER  = "Power";
 const String TXT_WIFI   = "WiFi";
-const char* TXT_UPDATED = "Updated:";
+const char* const TXT_UPDATED = "Updated:";
 
 
 //Wind
@@ -68,9 +68,9 @@ const String TXT_NW  = "NW";
 const String TXT_NNW = "NNW";
 
 //Day of the week
-const char* weekday_D[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+const char* const weekday_D[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
 //Month
-const char* month_M[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+const char* const month_M[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
 #endif

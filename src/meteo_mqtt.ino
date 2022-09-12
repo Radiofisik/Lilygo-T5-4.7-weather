@@ -21,22 +21,15 @@
 #include "owm_credentials.h"
 #include "forecast_record.h"
 #include "lang.h"
-#include "screan.h"
-// #include "lang_fr.h"
-
-//################  VERSION  ##################################################
-String version = "2.7 / 4.7in";  // Programme version, see change log at end
-//################ VARIABLES ##################################################
+#include "screen\screan.h"
+#include "functions.h"
 
 #define autoscale_on  true
 #define autoscale_off false
 #define barchart_on   true
 #define barchart_off  false
 
-boolean LargeIcon   = true;
-boolean SmallIcon   = false;
-#define Large  20           // For icon drawing
-#define Small  10           // For icon drawing
+
 String  Time_str = "--:--:--";
 String  Date_str = "-- --- ----";
 int     wifi_signal, CurrentHour = 0, CurrentMin = 0, CurrentSec = 0, EventCnt = 0, vref = 1100;
@@ -59,16 +52,10 @@ long StartTime       = 0;
 long SleepTimer      = 0;
 long Delta           = 30; // ESP32 rtc speed compensation, prevents display at xx:59:yy and then xx:00:yy (one minute later) to save power
 
-//fonts
-#include "moon.h"
-#include "sunrise.h"
-#include "sunset.h"
-#include "uvi.h"
-#include "domoticz.h"
-#include "washing.h"
-#include "disher.h"
 
-
+// #include "domoticz.h"
+// #include "washing.h"
+// #include "disher.h"
 
 void BeginSleep() {
   epd_poweroff_all();
@@ -246,19 +233,7 @@ bool DecodeWeather(WiFiClient& json, String Type) {
   return true;
 }
 //#########################################################################################
-String ConvertUnixTime(int unix_time) {
-  // Returns either '21:12  ' or ' 09:12pm' depending on Units mode
-  time_t tm = unix_time;
-  struct tm *now_tm = localtime(&tm);
-  char output[40];
-  if (Units == "M") {
-    strftime(output, sizeof(output), "%H:%M %d/%m/%y", now_tm);
-  }
-  else {
-    strftime(output, sizeof(output), "%I:%M%P %m/%d/%y", now_tm);
-  }
-  return output;
-}
+
 //#########################################################################################
 bool obtainWeatherData(WiFiClient & client, const String & RequestType) {
   const String units = (Units == "M" ? "metric" : "imperial");
@@ -287,42 +262,13 @@ bool obtainWeatherData(WiFiClient & client, const String & RequestType) {
   return true;
 }
 
-float mm_to_inches(float value_mm) {
-  return 0.0393701 * value_mm;
-}
-
-float hPa_to_inHg(float value_hPa) {
-  return 0.02953 * value_hPa;
-}
-
-int JulianDate(int d, int m, int y) {
-  int mm, yy, k1, k2, k3, j;
-  yy = y - (int)((12 - m) / 10);
-  mm = m + 9;
-  if (mm >= 12) mm = mm - 12;
-  k1 = (int)(365.25 * (yy + 4712));
-  k2 = (int)(30.6001 * mm + 0.5);
-  k3 = (int)((int)((yy / 100) + 49) * 0.75) - 38;
-  // 'j' for dates in Julian calendar:
-  j = k1 + k2 + d + 59 + 1;
-  if (j > 2299160) j = j - k3; // 'j' is the Julian date at 12h UT (Universal Time) For Gregorian calendar:
-  return j;
-}
-
 float SumOfPrecip(float DataArray[], int readings) {
   float sum = 0;
   for (int i = 0; i <= readings; i++) sum += DataArray[i];
   return sum;
 }
 
-String TitleCase(String text) {
-  if (text.length() > 0) {
-    String temp_text = text.substring(0, 1);
-    temp_text.toUpperCase();
-    return temp_text + text.substring(1); // Title-case the string
-  }
-  else return text;
-}
+
 
 void DisplayWeather() {                          // 4.7" e-paper display is 960x540 resolution
   DisplayStatusSection(600, 20, wifi_signal);    // Wi-Fi signal strength and Battery voltage
@@ -530,35 +476,6 @@ void DrawMoon(int x, int y, int diameter, int dd, int mm, int yy, String hemisph
   drawCircle(x + diameter - 1, y + diameter, diameter / 2, Black);
 }
 
-String MoonPhase(int d, int m, int y, String hemisphere) {
-  int c, e;
-  double jd;
-  int b;
-  if (m < 3) {
-    y--;
-    m += 12;
-  }
-  ++m;
-  c   = 365.25 * y;
-  e   = 30.6  * m;
-  jd  = c + e + d - 694039.09;     /* jd is total days elapsed */
-  jd /= 29.53059;                        /* divide by the moon cycle (29.53 days) */
-  b   = jd;                              /* int(jd) -> b, take integer part of jd */
-  jd -= b;                               /* subtract integer part to leave fractional part of original jd */
-  b   = jd * 8 + 0.5;                /* scale fraction from 0-8 and round by adding 0.5 */
-  b   = b & 7;                           /* 0 and 8 are the same phase so modulo 8 for 0 */
-  if (hemisphere == "south") b = 7 - b;
-  if (b == 0) return TXT_MOON_NEW;              // New;              0%  illuminated
-  if (b == 1) return TXT_MOON_WAXING_CRESCENT;  // Waxing crescent; 25%  illuminated
-  if (b == 2) return TXT_MOON_FIRST_QUARTER;    // First quarter;   50%  illuminated
-  if (b == 3) return TXT_MOON_WAXING_GIBBOUS;   // Waxing gibbous;  75%  illuminated
-  if (b == 4) return TXT_MOON_FULL;             // Full;            100% illuminated
-  if (b == 5) return TXT_MOON_WANING_GIBBOUS;   // Waning gibbous;  75%  illuminated
-  if (b == 6) return TXT_MOON_THIRD_QUARTER;    // Third quarter;   50%  illuminated
-  if (b == 7) return TXT_MOON_WANING_CRESCENT;  // Waning crescent; 25%  illuminated
-  return "";
-}
-
 void DisplayForecastSection(int x, int y) {
   int f = 0;
   do {
@@ -605,26 +522,7 @@ void DisplayConditionsSection(int x, int y, String IconName, bool IconSize) {
   else                                             Nodata(x, y, IconSize, IconName);
 }
 
-void arrow(int x, int y, int asize, float aangle, int pwidth, int plength) {
-  float dx = (asize - 10) * cos((aangle - 90) * PI / 180) + x; // calculate X position
-  float dy = (asize - 10) * sin((aangle - 90) * PI / 180) + y; // calculate Y position
-  float x1 = 0;         float y1 = plength;
-  float x2 = pwidth / 2;  float y2 = pwidth / 2;
-  float x3 = -pwidth / 2; float y3 = pwidth / 2;
-  float angle = aangle * PI / 180 - 135;
-  float xx1 = x1 * cos(angle) - y1 * sin(angle) + dx;
-  float yy1 = y1 * cos(angle) + x1 * sin(angle) + dy;
-  float xx2 = x2 * cos(angle) - y2 * sin(angle) + dx;
-  float yy2 = y2 * cos(angle) + x2 * sin(angle) + dy;
-  float xx3 = x3 * cos(angle) - y3 * sin(angle) + dx;
-  float yy3 = y3 * cos(angle) + x3 * sin(angle) + dy;
-  fillTriangle(xx1, yy1, xx3, yy3, xx2, yy2, Black);
-}
 
-void DrawSegment(int x, int y, int o1, int o2, int o3, int o4, int o11, int o12, int o13, int o14) {
-  drawLine(x + o1,  y + o2,  x + o3,  y + o4,  Black);
-  drawLine(x + o11, y + o12, x + o13, y + o14, Black);
-}
 
 void DrawPressureAndTrend(int x, int y, float pressure, String slope) {
   drawString(x + 25, y - 10, String(pressure, (Units == "M" ? 0 : 1)) + (Units == "M" ? "hPa" : "in"), LEFT);
@@ -711,224 +609,6 @@ void DrawBattery(int x, int y) {
   }
 }
 
-// Symbols are drawn on a relative 10x10grid and 1 scale unit = 1 drawing unit
-void addcloud(int x, int y, int scale, int linesize) {
-  fillCircle(x - scale * 3, y, scale, Black);                                                              // Left most circle
-  fillCircle(x + scale * 3, y, scale, Black);                                                              // Right most circle
-  fillCircle(x - scale, y - scale, scale * 1.4, Black);                                                    // left middle upper circle
-  fillCircle(x + scale * 1.5, y - scale * 1.3, scale * 1.75, Black);                                       // Right middle upper circle
-  fillRect(x - scale * 3 - 1, y - scale, scale * 6, scale * 2 + 1, Black);                                 // Upper and lower lines
-  fillCircle(x - scale * 3, y, scale - linesize, White);                                                   // Clear left most circle
-  fillCircle(x + scale * 3, y, scale - linesize, White);                                                   // Clear right most circle
-  fillCircle(x - scale, y - scale, scale * 1.4 - linesize, White);                                         // left middle upper circle
-  fillCircle(x + scale * 1.5, y - scale * 1.3, scale * 1.75 - linesize, White);                            // Right middle upper circle
-  fillRect(x - scale * 3 + 2, y - scale + linesize - 1, scale * 5.9, scale * 2 - linesize * 2 + 2, White); // Upper and lower lines
-}
-
-void addrain(int x, int y, int scale, bool IconSize) {
-  if (IconSize == SmallIcon) {
-    setFont(OpenSans8B);
-    drawString(x - 25, y + 12, "///////", LEFT);
-  }
-  else
-  {
-    setFont(OpenSans18B);
-    drawString(x - 60, y + 25, "///////", LEFT);
-  }
-}
-
-void addsnow(int x, int y, int scale, bool IconSize) {
-  if (IconSize == SmallIcon) {
-    setFont(OpenSans8B);
-    drawString(x - 25, y + 15, "* * * *", LEFT);
-  }
-  else
-  {
-    setFont(OpenSans18B);
-    drawString(x - 60, y + 30, "* * * *", LEFT);
-  }
-}
-
-void addtstorm(int x, int y, int scale) {
-  y = y + scale / 2;
-  for (int i = 1; i < 5; i++) {
-    drawLine(x - scale * 4 + scale * i * 1.5 + 0, y + scale * 1.5, x - scale * 3.5 + scale * i * 1.5 + 0, y + scale, Black);
-    drawLine(x - scale * 4 + scale * i * 1.5 + 1, y + scale * 1.5, x - scale * 3.5 + scale * i * 1.5 + 1, y + scale, Black);
-    drawLine(x - scale * 4 + scale * i * 1.5 + 2, y + scale * 1.5, x - scale * 3.5 + scale * i * 1.5 + 2, y + scale, Black);
-    drawLine(x - scale * 4 + scale * i * 1.5, y + scale * 1.5 + 0, x - scale * 3 + scale * i * 1.5 + 0, y + scale * 1.5 + 0, Black);
-    drawLine(x - scale * 4 + scale * i * 1.5, y + scale * 1.5 + 1, x - scale * 3 + scale * i * 1.5 + 0, y + scale * 1.5 + 1, Black);
-    drawLine(x - scale * 4 + scale * i * 1.5, y + scale * 1.5 + 2, x - scale * 3 + scale * i * 1.5 + 0, y + scale * 1.5 + 2, Black);
-    drawLine(x - scale * 3.5 + scale * i * 1.4 + 0, y + scale * 2.5, x - scale * 3 + scale * i * 1.5 + 0, y + scale * 1.5, Black);
-    drawLine(x - scale * 3.5 + scale * i * 1.4 + 1, y + scale * 2.5, x - scale * 3 + scale * i * 1.5 + 1, y + scale * 1.5, Black);
-    drawLine(x - scale * 3.5 + scale * i * 1.4 + 2, y + scale * 2.5, x - scale * 3 + scale * i * 1.5 + 2, y + scale * 1.5, Black);
-  }
-}
-
-void addsun(int x, int y, int scale, bool IconSize) {
-  int linesize = 5;
-  fillRect(x - scale * 2, y, scale * 4, linesize, Black);
-  fillRect(x, y - scale * 2, linesize, scale * 4, Black);
-  DrawAngledLine(x + scale * 1.4, y + scale * 1.4, (x - scale * 1.4), (y - scale * 1.4), linesize * 1.5, Black); // Actually sqrt(2) but 1.4 is good enough
-  DrawAngledLine(x - scale * 1.4, y + scale * 1.4, (x + scale * 1.4), (y - scale * 1.4), linesize * 1.5, Black);
-  fillCircle(x, y, scale * 1.3, White);
-  fillCircle(x, y, scale, Black);
-  fillCircle(x, y, scale - linesize, White);
-}
-
-void addfog(int x, int y, int scale, int linesize, bool IconSize) {
-  if (IconSize == SmallIcon) linesize = 3;
-  for (int i = 0; i < 6; i++) {
-    fillRect(x - scale * 3, y + scale * 1.5, scale * 6, linesize, Black);
-    fillRect(x - scale * 3, y + scale * 2.0, scale * 6, linesize, Black);
-    fillRect(x - scale * 3, y + scale * 2.5, scale * 6, linesize, Black);
-  }
-}
-
-void DrawAngledLine(int x, int y, int x1, int y1, int size, int color) {
-  int dx = (size / 2.0) * (x - x1) / sqrt(sq(x - x1) + sq(y - y1));
-  int dy = (size / 2.0) * (y - y1) / sqrt(sq(x - x1) + sq(y - y1));
-  fillTriangle(x + dx, y - dy, x - dx,  y + dy,  x1 + dx, y1 - dy, color);
-  fillTriangle(x - dx, y + dy, x1 - dx, y1 + dy, x1 + dx, y1 - dy, color);
-}
-
-void ClearSky(int x, int y, bool IconSize, String IconName) {
-  int scale = Small;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  if (IconSize == LargeIcon) scale = Large;
-  y += (IconSize ? 0 : 10);
-  addsun(x, y, scale * (IconSize ? 1.7 : 1.2), IconSize);
-}
-
-void BrokenClouds(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  y += 15;
-  if (IconSize == LargeIcon) scale = Large;
-  addsun(x - scale * 1.8, y - scale * 1.8, scale, IconSize);
-  addcloud(x, y, scale * (IconSize ? 1 : 0.75), linesize);
-}
-
-void FewClouds(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  y += 15;
-  if (IconSize == LargeIcon) scale = Large;
-  addcloud(x + (IconSize ? 10 : 0), y, scale * (IconSize ? 0.9 : 0.8), linesize);
-  addsun((x + (IconSize ? 10 : 0)) - scale * 1.8, y - scale * 1.6, scale, IconSize);
-}
-
-void ScatteredClouds(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  y += 15;
-  if (IconSize == LargeIcon) scale = Large;
-  addcloud(x - (IconSize ? 35 : 0), y * (IconSize ? 0.75 : 0.93), scale / 2, linesize); // Cloud top left
-  addcloud(x, y, scale * 0.9, linesize);                                         // Main cloud
-}
-
-void Rain(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  y += 15;
-  if (IconSize == LargeIcon) scale = Large;
-  addcloud(x, y, scale * (IconSize ? 1 : 0.75), linesize);
-  addrain(x, y, scale, IconSize);
-}
-
-void ChanceRain(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  if (IconSize == LargeIcon) scale = Large;
-  y += 15;
-  addsun(x - scale * 1.8, y - scale * 1.8, scale, IconSize);
-  addcloud(x, y, scale * (IconSize ? 1 : 0.65), linesize);
-  addrain(x, y, scale, IconSize);
-}
-
-void Thunderstorms(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  if (IconSize == LargeIcon) scale = Large;
-  y += 5;
-  addcloud(x, y, scale * (IconSize ? 1 : 0.75), linesize);
-  addtstorm(x, y, scale);
-}
-
-void Snow(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  if (IconSize == LargeIcon) scale = Large;
-  addcloud(x, y, scale * (IconSize ? 1 : 0.75), linesize);
-  addsnow(x, y, scale, IconSize);
-}
-
-void Mist(int x, int y, bool IconSize, String IconName) {
-  int scale = Small, linesize = 5;
-  if (IconName.endsWith("n")) addmoon(x, y, IconSize);
-  if (IconSize == LargeIcon) scale = Large;
-  addsun(x, y, scale * (IconSize ? 1 : 0.75), linesize);
-  addfog(x, y, scale, linesize, IconSize);
-}
-
-void CloudCover(int x, int y, int CloudCover) {
-  addcloud(x - 9, y,     Small * 0.3, 2); // Cloud top left
-  addcloud(x + 3, y - 2, Small * 0.3, 2); // Cloud top right
-  addcloud(x, y + 15,    Small * 0.6, 2); // Main cloud
-  drawString(x + 30, y, String(CloudCover) + "%", LEFT);
-}
-
-void Visibility(int x, int y, String Visibility) {
-  float start_angle = 0.52, end_angle = 2.61, Offset = 10;
-  int r = 14;
-  for (float i = start_angle; i < end_angle; i = i + 0.05) {
-    drawPixel(x + r * cos(i), y - r / 2 + r * sin(i) + Offset, Black);
-    drawPixel(x + r * cos(i), 1 + y - r / 2 + r * sin(i) + Offset, Black);
-  }
-  start_angle = 3.61; end_angle = 5.78;
-  for (float i = start_angle; i < end_angle; i = i + 0.05) {
-    drawPixel(x + r * cos(i), y + r / 2 + r * sin(i) + Offset, Black);
-    drawPixel(x + r * cos(i), 1 + y + r / 2 + r * sin(i) + Offset, Black);
-  }
-  fillCircle(x, y + Offset, r / 4, Black);
-  drawString(x + 20, y, Visibility, LEFT);
-}
-
-void addmoon(int x, int y, bool IconSize) {
-  int xOffset = 65;
-  int yOffset = 12;
-  if (IconSize == LargeIcon) {
-    xOffset = 130;
-    yOffset = -40;
-  }
-  fillCircle(x - 28 + xOffset, y - 37 + yOffset, uint16_t(Small * 1.0), Black);
-  fillCircle(x - 16 + xOffset, y - 37 + yOffset, uint16_t(Small * 1.6), White);
-}
-
-void Nodata(int x, int y, bool IconSize, String IconName) {
-  if (IconSize == LargeIcon) setFont(OpenSans24B); else setFont(OpenSans12B);
-  drawString(x - 3, y - 10, "No Data", CENTER);
-}
-
-void DrawMoonImage(int x, int y) {
-  Rect_t area = {
-    .x = x, .y = y, .width  = moon_width, .height =  moon_height
-  };
-  epd_draw_grayscale_image(area, (uint8_t *) moon_data);
-}
-
-void DrawSunriseImage(int x, int y) {
-  Rect_t area = {
-    .x = x, .y = y, .width  = sunrise_width, .height =  sunrise_height
-  };
-  epd_draw_grayscale_image(area, (uint8_t *) sunrise_data);
-}
-
-void DrawSunsetImage(int x, int y) {
-  Rect_t area = {
-    .x = x, .y = y, .width  = sunset_width, .height =  sunset_height
-  };
-  epd_draw_grayscale_image(area, (uint8_t *) sunset_data);
-}
 
 void DrawUVI(int x, int y) {
   Rect_t area = {
@@ -965,39 +645,39 @@ void DrawSolarImage(int x, int y) {
 
 
 /////////////////// code domotique  //////////////////////////////////////////////////////////////
-/// reste du code de traitement dans domoticz.h 
-void DisplayMQTT(int x, int y) {
-drawRect ( x-10, y-10 , 700,145, 0x65 )   ;
-setFont(OpenSans12B);
+// /// reste du code de traitement dans domoticz.h 
+// void DisplayMQTT(int x, int y) {
+// drawRect ( x-10, y-10 , 700,145, 0x65 )   ;
+// setFont(OpenSans12B);
 
-for (int j = 0; j <= 3 ; j++) {
-    int cy = 0 ;
-for (int i = j*3; i <= (j*3 + 2) ; i++) { 
-    if  ( domoticz_IDX[i][0] != NULL ) {  // prevent hang null value
-      int ycorrect=0;
-    if ( domoticz_IDX[i][0].indexOf("y") != -1  ||domoticz_IDX[i][0].indexOf("p") != -1 ) ycorrect = -6 ;   /// correction du big polices  ( 12b) 
-    drawString(x +10+ cy*225 , y+(j*35)+ycorrect , domoticz_IDX[i][0] +" : " + domoticz_result[i],  LEFT);
-    cy++; 
-    }
-}}
-/// condition d'affichage des images 
-if ( domoticz_result[0].substring(0,2).toInt() > wash ) { DrawWashingImage ( x+500 , y+ 35 );  }// si temp eau > 45 > ok pour machine laver
-if ( domoticz_result[4].substring(0,4).toInt() > disher ) DrawDisherImage ( x+575  , y+ 35 ); // si prod > 700w alors ok pour lave vaisselle
-  }
+// for (int j = 0; j <= 3 ; j++) {
+//     int cy = 0 ;
+// for (int i = j*3; i <= (j*3 + 2) ; i++) { 
+//     if  ( domoticz_IDX[i][0] != NULL ) {  // prevent hang null value
+//       int ycorrect=0;
+//     if ( domoticz_IDX[i][0].indexOf("y") != -1  ||domoticz_IDX[i][0].indexOf("p") != -1 ) ycorrect = -6 ;   /// correction du big polices  ( 12b) 
+//     drawString(x +10+ cy*225 , y+(j*35)+ycorrect , domoticz_IDX[i][0] +" : " + domoticz_result[i],  LEFT);
+//     cy++; 
+//     }
+// }}
+// /// condition d'affichage des images 
+// if ( domoticz_result[0].substring(0,2).toInt() > wash ) { DrawWashingImage ( x+500 , y+ 35 );  }// si temp eau > 45 > ok pour machine laver
+// if ( domoticz_result[4].substring(0,4).toInt() > disher ) DrawDisherImage ( x+575  , y+ 35 ); // si prod > 700w alors ok pour lave vaisselle
+//   }
 
-void DrawWashingImage(int x, int y) {
-  Rect_t area = {
-    .x = x, .y = y, .width  = washing_width, .height =  washing_height
-  };
-  epd_draw_grayscale_image(area, (uint8_t *) washing_data);
-}
+// void DrawWashingImage(int x, int y) {
+//   Rect_t area = {
+//     .x = x, .y = y, .width  = washing_width, .height =  washing_height
+//   };
+//   epd_draw_grayscale_image(area, (uint8_t *) washing_data);
+// }
 
-void DrawDisherImage(int x, int y) {
-  Rect_t area = {
-    .x = x, .y = y, .width  = disher_width, .height =  disher_height
-  };
-  epd_draw_grayscale_image(area, (uint8_t *) disher_data);
-}
+// void DrawDisherImage(int x, int y) {
+//   Rect_t area = {
+//     .x = x, .y = y, .width  = disher_width, .height =  disher_height
+//   };
+//   epd_draw_grayscale_image(area, (uint8_t *) disher_data);
+// }
 
 //////////////////////////// fin code domotique  //////////////////////////////////////////////////////////////
 
